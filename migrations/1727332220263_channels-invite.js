@@ -9,4 +9,8 @@ exports.up = async pgm => {
 
 };
 
-exports.down = pgm => {};
+exports.down = async pgm => {
+    await pgm.sql(`ALTER TABLE channels
+        DROP COLUMN IF EXISTS invite_link
+        `);
+};
