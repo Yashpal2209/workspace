@@ -570,6 +570,7 @@ const listMessages = async (payload) => {
         })
 
         const usersData = await userController.getUsersData([...userIdsSet]);
+        console.log(1,usersData);
         return {messagesArr, usersData};
 
     } catch (error) {

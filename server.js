@@ -27,11 +27,14 @@ const authController = require('./controllers/authController');
 const channelController = require('./controllers/channelController');
 const messageController = require('./controllers/messageController');
 const userActivityController = require('./controllers/userActivityController');
+const userController = require('./controllers/userController');
 const notificationController = require('./controllers/notificationController');
 const emailService = require('./services/emailService');
 const cookie = require('cookie');
 
 const socketRoutes = require('./routes/socketRoutes');
+const { redisService } = require('./services');
+const { redisKeys } = require('./lib/constants');
 
 app.use(express.json({limit: '50mb', extended: true}));
 app.use(express.urlencoded({limit: '50mb', extended: true}));
@@ -70,18 +73,30 @@ io.use( async (socket, next) => {
 	}
 })
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
 	//console.log('a user connected');
 	let userId = socket.userData && socket.userData.userId;
 	let socketId = socket.id;
 	socket.join(userId);
-	socket.on('disconnect', () => {
-		//console.log('user disconnected');
+	//set lasteen as -1
+	await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',-1);
+	// console.log(123,await redisService.redis("hget",`${redisKeys.userData}:${userId}`,'lastseen_at'));
+	const workspaceids=await userController.getWids(userId);
+	workspaceids.forEach(async (wid) => {
+		io.to(wid).emit('userjoin', userId);
+	});
+	socket.on('disconnect',async () => {
+		console.log('user disconnected');
 		socket.leave(userId);
-		channelController.setLastSeenOnSocketDisconnection({userId, socketId})
+		await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',Date.now());
+		await userController.updateLastSeenUser(userId,Date.now());
+		const workspaceids=await userController.getWids(userId);
+		workspaceids.forEach(async (wid) => {
+		    io.to(wid).emit('userleft', userId);
+		});
+		channelController.setLastSeenOnSocketDisconnection({userId, socketId});
 	});
 	socketRoutes(socket, io);
-	
 });
 
 app.use(middelwares.session.populateSession);

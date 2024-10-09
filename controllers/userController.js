@@ -178,7 +178,7 @@ const getUsersData = async (userIds = []) => {
 
     pipelineOutput.map((arr, index) => {
         let userObj = arr[1] || {};
-        let userId = userObj.id;
+        let userId = userObj._id;
         if ( userId ) {
             userObj.fromRedis = true;
             usersData[userId] = userObj;
@@ -199,6 +199,7 @@ const getUsersData = async (userIds = []) => {
                 userModel.columnName.profilePic,
                 userModel.columnName.email,
                 userModel.columnName.status,
+                userModel.columnName.lastseen_at,
             ], condition
         );
         usersObjArr.map(userObj => {
@@ -210,6 +211,7 @@ const getUsersData = async (userIds = []) => {
                 [constants.redisKeys.email]: userObj.email,
                 [constants.redisKeys.profilePic]: userObj.profile_pic,
                 [constants.redisKeys.status]: userObj.status,
+                [constants.redisKeys.lastseen_at]: userObj.lastseen_at
             }
             usersData[userId] = obj;
             redisService.redis('hmset', `${constants.redisKeys.userData}:${userId}`, obj);
@@ -386,6 +388,22 @@ const getUserChannelsAndWorkspace = async (userId) => {
     return res.rows[0];
 }
 
+const updateLastSeenUser = async (userId,lastseen)=>{
+    let updatedObj={};
+    updatedObj[userModel.columnName.lastseen_at]=lastseen;  // update last seen time to current time.
+    console.log("update obj",updatedObj);
+    return updateUsersData({[userModel.columnName.id]: userId}, updatedObj);
+}
+
+const getWids = async (userId) => {
+    const condition = `WHERE ${userModel.columnName.id} = '${userId}'`;
+    const user = await services.userService.getSingleUserFromDb([userModel.columnName.workspace_ids], condition);
+    if (!user) {
+        throw new Error('User not found');
+    }
+    return user[userModel.columnName.workspace_ids];
+}
+
 module.exports = {
     addUsers,
     isUserExist,
@@ -399,4 +417,6 @@ module.exports = {
     validateUserPassword,
     validateResetPasswordToken,
     getUserChannelsAndWorkspace,
+    updateLastSeenUser,
+    getWids,
 }
