@@ -229,7 +229,7 @@ const getChannelUsersData = async (payload) => {
         WHERE ${channelModel.columnName.id} = '${channelId}' \
     `;
     let res = await postgres.query(q);
-    console.log("getChannelUsersData data = ", res && res.rows);
+    // console.log("getChannelUsersData data = ", res && res.rows);
     const {id, user_ids = [], removed_user_ids = []} = ( res && res.rows && res.rows[0] ) || {};
     if ( ! id )     throw new Error("Channel not found");
     
@@ -267,7 +267,7 @@ const updateUsersData = async  (criteriaObj, objToSet) => {
     let criteria = ` WHERE `;
     Object.entries(criteriaObj ?? {}).forEach(([key, value]) => {
         try {
-            console.log(key, value);
+            // console.log(key, value);
             criteria += ` ${key} = `
             if (typeof value === 'string') {
                 criteria += ` '${value}' `
@@ -330,7 +330,7 @@ const forgotPassword = async (email) => {
     if (!result?.length) {
         throw new Error(libs.messages.errorMessage.userNotFound);
     }
-    console.log(result);
+    // console.log(result);
     const userData = result?.[0];
     const emailClass = services.emailService.CreateEmailFactory({
         to: email,
@@ -391,7 +391,7 @@ const getUserChannelsAndWorkspace = async (userId) => {
 const updateLastSeenUser = async (userId,lastseen)=>{
     let updatedObj={};
     updatedObj[userModel.columnName.lastseen_at]=lastseen;  // update last seen time to current time.
-    console.log("update obj",updatedObj);
+    // console.log("update obj",updatedObj);
     return updateUsersData({[userModel.columnName.id]: userId}, updatedObj);
 }
 

@@ -64,7 +64,6 @@ io.use( async (socket, next) => {
 		const sessionObj = await authController.authenticateSession(cookies?.jwt);
 		if ( ! sessionObj )		throw new Error("Request is not authenticated");
 		socket.userData = sessionObj;
-		//console.log("Socket user data = ", userData);
 		next();	
 	} catch (e) {
 		console.log(e)
@@ -74,26 +73,30 @@ io.use( async (socket, next) => {
 })
 
 io.on('connection', async (socket) => {
-	//console.log('a user connected');
 	let userId = socket.userData && socket.userData.userId;
 	let socketId = socket.id;
 	socket.join(userId);
-	//set lasteen as -1
-	await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',-1);
-	// console.log(123,await redisService.redis("hget",`${redisKeys.userData}:${userId}`,'lastseen_at'));
-	const workspaceids=await userController.getWids(userId);
-	workspaceids.forEach(async (wid) => {
-		io.to(wid).emit('userjoin', userId);
-	});
-	socket.on('disconnect',async () => {
-		console.log('user disconnected');
-		socket.leave(userId);
-		await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',Date.now());
-		await userController.updateLastSeenUser(userId,Date.now());
+	const length = await redisService.redis('scard',`${redisKeys.userSocketData}:${userId}`);
+	if(!length){
 		const workspaceids=await userController.getWids(userId);
 		workspaceids.forEach(async (wid) => {
-		    io.to(wid).emit('userleft', userId);
+			io.to(wid).emit('userjoin', userId);
 		});
+	}
+	await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',-1);
+	await redisService.redis('sadd',`${redisKeys.userSocketData}:${userId}`,socketId);
+	socket.on('disconnect',async () => {
+		socket.leave(userId);
+		const length = await redisService.redis('scard',`${redisKeys.userSocketData}:${userId}`);
+		await redisService.redis('srem',`${redisKeys.userSocketData}:${userId}`,socketId);
+		if(length==1){
+			await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',Date.now());
+			await userController.updateLastSeenUser(userId,Date.now());
+			const workspaceids=await userController.getWids(userId);
+			workspaceids.forEach(async (wid) => {
+				io.to(wid).emit('userleft', userId);
+			});
+		}
 		channelController.setLastSeenOnSocketDisconnection({userId, socketId});
 	});
 	socketRoutes(socket, io);

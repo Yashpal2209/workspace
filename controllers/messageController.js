@@ -127,7 +127,6 @@ const addMessageInRedisStream = async (payload) => {
                     ) \
                     VALUES ${valueString} \
                 `;
-                //console.log("q = ", q);
                 await pool.query(q);
                 
                 let notificationObj = {
@@ -218,7 +217,6 @@ const addMessageInDb = async (payload) => {
                 ${messageModel.columnName.is_resolved}, \
                 ${messageModel.columnName.is_discussion_required} \
         `;
-        //console.log("q1 = ",query1);
         let res1 = await pool.query(query1, [content]);
         messageObj = res1 && res1.rows && res1.rows[0] && res1.rows[0];
         messageId = messageObj && messageObj.id;
@@ -264,7 +262,6 @@ const editMessage = async (payload) => {
                     ${messageModel.columnName.workspace_id}, \
                     ${messageModel.columnName.channel_id} \
             `
-            //console.log("q1 = ",query1);
             let res = await pool.query(query1, [content]);
             res = (res && res.rows[0]) || {};
             workspaceId = res[messageModel.columnName.workspace_id];
@@ -304,7 +301,6 @@ const editMessage = async (payload) => {
                     ) \
                     VALUES ${valueString} \
                 `;
-                //console.log("q = ", q);
                 await pool.query(q);
                 
                 let notificationObj = {
@@ -357,8 +353,6 @@ const deleteMessage = async (payload) => {
                 RETURNING \
                     ${messageModel.columnName.id} \
             `;
-
-            //console.log("q1 = ",query1);
             res = await pool.query(q);
             res = res && res.rows && res.rows[0];
             if ( ! ( res && res.id ) )    throw new Error("Deletion failed");
@@ -529,7 +523,6 @@ const listMessages = async (payload) => {
                     ORDER BY ${messageModel.columnName.created_at} DESC \
                     LIMIT ${limit}
                 `;
-                //console.log("q1 = ",q);
                 let res1 = await pool.query(q);
                 dbMessagesArr = ( res1 && res1.rows ) || [];
             }
@@ -543,7 +536,6 @@ const listMessages = async (payload) => {
                     ORDER BY ${messageModel.columnName.created_at} ASC \
                 LIMIT ${limit} \
             `;
-            //console.log("q1 = ",q);
             let res1 = await pool.query(q);
             dbMessagesArr = ( res1 && res1.rows ) || [];
 
@@ -570,7 +562,6 @@ const listMessages = async (payload) => {
         })
 
         const usersData = await userController.getUsersData([...userIdsSet]);
-        console.log(1,usersData);
         return {messagesArr, usersData};
 
     } catch (error) {
@@ -662,7 +653,6 @@ const addReply = async (payload = {}) => {
                 ${messageModel.columnName.mentions}, \
                 ${messageModel.columnName.attachments} \
         `;
-        //console.log("q1 = ",query1);
         let res1 = await client.query(query1, [content]);
         let messageId = res1 && res1.rows && res1.rows[0] && res1.rows[0].id;
         if ( ! messageId )      throw new Error("Message Id is null");
@@ -692,7 +682,6 @@ const addReply = async (payload = {}) => {
                 WHERE ${messageModel.columnName.id} = '${parentIdOfReply}' \
                 RETURNING ${messageModel.columnName.id}, ${messageModel.columnName.created_by}, ${messageModel.columnName.replyIds}, ${messageModel.columnName.notify_user_ids} \
             `
-            //console.log("q2 = ",q2);
             let res2 = await client.query(q2);
             let parentMessageObj = res2 && res2.rows && res2.rows[0] && res2.rows[0];
             parentMessageId = parentMessageObj.id;
@@ -732,8 +721,6 @@ const addReply = async (payload = {}) => {
                         '${userId}' \
                     ) \
                 `;
-
-                //console.log("q3 = ", q3);
                 await client.query(q3);
             }
         }
@@ -851,7 +838,6 @@ const editReply = async (payload) => {
                 ${messageModel.columnName.attachments} = '${postgreUtil.prepareValue(attachments)}' \
             WHERE ${messageModel.columnName.id} = '${messageId}' AND ${messageModel.columnName.created_by} = '${userId}' \
         `
-        console.log("q1 = ",query1);
         let res1 = await client.query(query1, [content]);
 
         await client.query('COMMIT');
@@ -887,8 +873,6 @@ const deleteReply = async (payload) => {
                 ${messageModel.columnName.workspace_id}, \
                 ${messageModel.columnName.channel_id} \
         `
-
-        //console.log("q1 = ",query1);
         let res1 = await client.query(query1);
 
         res1 = res1 && res1.rows && res1.rows[0];
@@ -932,8 +916,6 @@ const listReplies = async (payload) => {
                 ${messageModel.columnName.replyToParentId} = '${parentIdOfReply}' \
             ORDER BY ${messageModel.columnName.created_at} ASC \
         `;
-
-        //console.log("q1 = ", query1);
         let res1 = await pool.query(query1);
         let repliesArr = ( res1 && res1.rows ) || [];
 
@@ -964,7 +946,6 @@ const popMessageIdFromStream = async (channelId) => {
         if ( messageIdsArr.length != 1 )    throw new Error("More than one messages are coming from stream");
         
         const streamObjId = streamData && streamData[0] && streamData[0][0];
-        //console.log("streamObjId = ", streamObjId);
 
         const messageId = messageIdsArr[0];
         const messageObj = await redisService.redis('hgetall', `${redisKeys.messageDataHash}:${messageId}`);
@@ -980,7 +961,6 @@ const popMessageIdFromStream = async (channelId) => {
                 ${messageModel.columnName.replyToParentId} = '${messageId}' \
             ORDER BY ${messageModel.columnName.created_at} ASC \
             `
-            //console.log("q1 = ", query1);
             let res1 = await pool.query(query1);
             messageObj.replyIds = ( ( res1 && res1.rows  ) || [] ).map(replyObj => replyObj[messageModel.columnName.id]);
             if ( messageObj.replyIds.length == 0 )   throw new Error(`Replies not found, Reply count is ${replyCount}`);
@@ -1021,7 +1001,6 @@ const getChannelIdForMessageWriteToDb = async () => {
             const channelId = channelIds[index];
 
             let sockets = await io.in(channelId).fetchSockets();
-            //console.log(`Socket length for channel ${channelId} is ${sockets.length}`);
             if (sockets.length)     continue;
 
             let streamCount = parseInt(channelIdsObj[channelId]);
