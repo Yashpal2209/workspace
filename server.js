@@ -143,23 +143,6 @@ process.on('unhandledRejection', (reason, p) => {
 	// application specific logging, throwing an error, or other logic here
 });
 
-async function deleteAllSocketData() {
-	let cursor = '0';
-	let deletedCount = 0;
-  
-	do {
-	  const result = await redisService.redis('scan', cursor, 'MATCH', `${redisKeys.userSocketData}:*`, 'COUNT', 100);
-	  cursor = result[0];
-	  const keys = result[1];
-  
-	  if (keys.length > 0) {
-		await redisService.redis('del', ...keys);
-		deletedCount += keys.length;
-	  }
-	} while (cursor !== '0');
-}
-deleteAllSocketData();
-
 async function deleteSocketCnt(){
 	let cursor = '0';
   
