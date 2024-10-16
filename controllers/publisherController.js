@@ -56,8 +56,7 @@ let sendEmit = async ()=>{
                     return;
                 }
                 //case of logout 
-                if(cnt==0){    
-                    console.log("semding logout");
+                if(cnt==0){
                     await redisService.redis("hset",`${redisKeys.userData}:${request["userId"]}`,'lastseen_at',Date.now());
                     await userController.updateLastSeenUser(request["userId"],Date.now());
                     const workspaceids=await userController.getWorkspaceIds(request["userId"]);
