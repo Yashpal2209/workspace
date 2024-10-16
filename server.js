@@ -29,12 +29,13 @@ const messageController = require('./controllers/messageController');
 const userActivityController = require('./controllers/userActivityController');
 const userController = require('./controllers/userController');
 const notificationController = require('./controllers/notificationController');
+const publisherController = require('./controllers/publisherController');
 const emailService = require('./services/emailService');
 const cookie = require('cookie');
 
 const socketRoutes = require('./routes/socketRoutes');
 const { redisService } = require('./services');
-const { redisKeys } = require('./lib/constants');
+const { redisKeys,onlineStatusType } = require('./lib/constants');
 
 app.use(express.json({limit: '50mb', extended: true}));
 app.use(express.urlencoded({limit: '50mb', extended: true}));
@@ -73,30 +74,26 @@ io.use( async (socket, next) => {
 })
 
 io.on('connection', async (socket) => {
+	const time=Date.now();
 	let userId = socket.userData && socket.userData.userId;
 	let socketId = socket.id;
 	socket.join(userId);
-	const length = await redisService.redis('scard',`${redisKeys.userSocketData}:${userId}`);
-	if(!length){
-		const workspaceids=await userController.getWids(userId);
-		workspaceids.forEach(async (wid) => {
-			io.to(wid).emit('userjoin', userId);
-		});
-	}
-	await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',-1);
-	await redisService.redis('sadd',`${redisKeys.userSocketData}:${userId}`,socketId);
+	const obj=JSON.stringify({
+		"userId":userId,
+		"type":onlineStatusType.online,
+		"timeStamp":time
+	});
+	await redisService.redis('rpush',`${redisKeys.emitRequestData}`,obj);
+
 	socket.on('disconnect',async () => {
+		const time=Date.now();
 		socket.leave(userId);
-		const length = await redisService.redis('scard',`${redisKeys.userSocketData}:${userId}`);
-		await redisService.redis('srem',`${redisKeys.userSocketData}:${userId}`,socketId);
-		if(length==1){
-			await redisService.redis("hset",`${redisKeys.userData}:${userId}`,'lastseen_at',Date.now());
-			await userController.updateLastSeenUser(userId,Date.now());
-			const workspaceids=await userController.getWids(userId);
-			workspaceids.forEach(async (wid) => {
-				io.to(wid).emit('userleft', userId);
-			});
-		}
+		const obj=JSON.stringify({
+			"userId":userId,
+			"type":onlineStatusType.offline,
+			"timeStamp":time
+		});
+		await redisService.redis('rpush',`${redisKeys.emitRequestData}`,obj);
 		channelController.setLastSeenOnSocketDisconnection({userId, socketId});
 	});
 	socketRoutes(socket, io);
@@ -146,6 +143,44 @@ process.on('unhandledRejection', (reason, p) => {
 	// application specific logging, throwing an error, or other logic here
 });
 
+async function deleteAllSocketData() {
+	let cursor = '0';
+	let deletedCount = 0;
+  
+	do {
+	  const result = await redisService.redis('scan', cursor, 'MATCH', `${redisKeys.userSocketData}:*`, 'COUNT', 100);
+	  cursor = result[0];
+	  const keys = result[1];
+  
+	  if (keys.length > 0) {
+		await redisService.redis('del', ...keys);
+		deletedCount += keys.length;
+	  }
+	} while (cursor !== '0');
+}
+deleteAllSocketData();
+
+async function deleteSocketCnt(){
+	let cursor = '0';
+  
+	do {
+	  const result = await redisService.redis('scan', cursor, 'MATCH', `${redisKeys.userData}:*`, 'COUNT', 100);
+	  cursor = result[0];
+	  const keys = result[1];
+	  if(keys.length > 0){
+		keys.forEach(async key => {
+			await redisService.redis('hdel', `${redisKeys.userData}:${key.split(':')[1]}`,'socketCnt');
+		});
+	  }
+	} while (cursor !== '0');
+}
+deleteSocketCnt();
+
+setInterval( async () => {
+	if (process.env.SOCKET_PUBLISHER == 1) {
+		publisherController.sendEmit();
+	}
+},1000)
 
 setInterval( async () => {
 	try {

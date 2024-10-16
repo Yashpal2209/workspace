@@ -7,4 +7,5 @@ module.exports = {
     notificationController: require('./notificationController'),
     workspaceNotificationSettingsController: require('./workspaceNotificationSettingsController'),
     userActivityController: require('./userActivityController'),
+    publisherController: require('./publisherController'),
 }

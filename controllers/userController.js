@@ -395,7 +395,7 @@ const updateLastSeenUser = async (userId,lastseen)=>{
     return updateUsersData({[userModel.columnName.id]: userId}, updatedObj);
 }
 
-const getWids = async (userId) => {
+const getWorkspaceIds = async (userId) => {
     const condition = `WHERE ${userModel.columnName.id} = '${userId}'`;
     const user = await services.userService.getSingleUserFromDb([userModel.columnName.workspace_ids], condition);
     if (!user) {
@@ -418,5 +418,5 @@ module.exports = {
     validateResetPasswordToken,
     getUserChannelsAndWorkspace,
     updateLastSeenUser,
-    getWids,
+    getWorkspaceIds,
 }
